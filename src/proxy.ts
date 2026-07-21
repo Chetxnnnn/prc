@@ -32,6 +32,8 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   const isStudentRoute = pathname.startsWith("/student/");
+  const isStudentAuthRoute =
+    pathname === "/student/login" || pathname === "/student/signup";
   const isStaffRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/students") ||
@@ -41,13 +43,14 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/settings");
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
 
-  const isPendingRoute = pathname === "/student/pending";
+  const isStudentPendingRoute = pathname === "/student/pending";
+  const isStaffPendingRoute = pathname === "/pending";
 
   if (!user) {
-    if (isStaffRoute) {
+    if (isStaffRoute || isStaffPendingRoute) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    if (isStudentRoute && !pathname.startsWith("/student/login") && !pathname.startsWith("/student/signup")) {
+    if (isStudentRoute && !isStudentAuthRoute) {
       return NextResponse.redirect(new URL("/student/login", request.url));
     }
     return response;
@@ -77,45 +80,49 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/student/dashboard", request.url));
     }
 
-    if (isStudentRoute && !isPendingRoute) {
+    if (isStudentRoute && !isStudentPendingRoute) {
       if (!isApprovedStudent) {
         return NextResponse.redirect(new URL("/student/pending", request.url));
       }
     }
 
-    if (isPendingRoute && isApprovedStudent) {
+    if (isStudentPendingRoute && isApprovedStudent) {
       return NextResponse.redirect(new URL("/student/dashboard", request.url));
     }
   } else {
-    if (isStudentRoute && !pathname.startsWith("/student/login") && !pathname.startsWith("/student/signup")) {
-      if (!profile || !profile.is_approved || !profile.is_active) {
+    const isApprovedStaff =
+      !!profile && !!profile.is_approved && !!profile.is_active;
+
+    if (isStudentRoute && !isStudentAuthRoute) {
+      if (!isApprovedStaff) {
         return NextResponse.redirect(new URL("/pending", request.url));
       }
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
     if (isStaffRoute) {
-      if (!profile || !profile.is_approved || !profile.is_active) {
+      if (!isApprovedStaff) {
         return NextResponse.redirect(new URL("/pending", request.url));
       }
     }
 
     if (isAuthRoute) {
-      if (!profile || !profile.is_approved || !profile.is_active) {
+      if (!isApprovedStaff) {
         return NextResponse.redirect(new URL("/pending", request.url));
       }
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    if (pathname === "/pending") {
-      if (profile?.is_approved && profile?.is_active) {
+    if (isStaffPendingRoute) {
+      if (isApprovedStaff) {
         return NextResponse.redirect(new URL("/dashboard", request.url));
       }
+      // Unapproved/inactive staff stay on /pending — never redirect away,
+      // otherwise /pending loops into itself (ERR_TOO_MANY_REDIRECTS).
+      return response;
     }
-  }
 
-  if (!isStudent && !isStaffRoute && !isAuthRoute && !isPendingRoute && !isStudentRoute) {
-    if (!profile || !profile.is_approved || !profile.is_active) {
+    if (!isStaffRoute && !isAuthRoute && !isStudentRoute && !isApprovedStaff) {
       return NextResponse.redirect(new URL("/pending", request.url));
     }
   }

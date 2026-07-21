@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { studentSignup } from "@/actions/student-auth";
+import { hashPassword } from "@/lib/crypto";
 import { studentSignupSchema, type StudentSignupInput, ALL_SUBJECTS } from "@/lib/validators";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,9 +38,19 @@ export function StudentSignupForm() {
 
   async function onSubmit(data: StudentSignupInput) {
     setLoading(true);
+
+    let hashedPassword: string;
+    try {
+      hashedPassword = await hashPassword(data.password);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unable to secure password.");
+      setLoading(false);
+      return;
+    }
+
     const formData = new FormData();
     formData.set("email", data.email);
-    formData.set("password", data.password);
+    formData.set("password", hashedPassword);
     formData.set("full_name", data.full_name);
     formData.set("date_of_birth", data.date_of_birth);
     formData.set("gender", data.gender);

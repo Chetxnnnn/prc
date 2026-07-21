@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signup } from "@/actions/auth";
+import { hashPassword } from "@/lib/crypto";
 import { signupSchema, type SignupInput } from "@/lib/validators";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +29,19 @@ export function SignupForm() {
   async function onSubmit(data: SignupInput) {
     setLoading(true);
 
+    let hashedPassword: string;
+    try {
+      hashedPassword = await hashPassword(data.password);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unable to secure password.");
+      setLoading(false);
+      return;
+    }
+
     const formData = new FormData();
     formData.set("full_name", data.full_name);
     formData.set("email", data.email);
-    formData.set("password", data.password);
+    formData.set("password", hashedPassword);
 
     try {
       const result = await signup(formData);

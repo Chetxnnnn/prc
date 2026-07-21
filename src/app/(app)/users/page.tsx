@@ -7,6 +7,7 @@ import { StudentApprovalTable } from "@/components/features/users/student-approv
 import { getUsers } from "@/actions/users";
 import { getPendingStudents } from "@/actions/student-auth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 import type { Tables } from "@/types/database.types";
 
 type Student = Tables<"students">;
@@ -25,8 +26,11 @@ export default function UsersPage() {
       ]);
       setUsers(userData);
       setStudents(studentData);
-    } catch {
-      console.error("Failed to load users");
+    } catch (e) {
+      console.error("Failed to load users", e);
+      toast.error(
+        "Failed to load users: " + (e instanceof Error ? e.message : "Unknown error")
+      );
     } finally {
       setLoading(false);
     }

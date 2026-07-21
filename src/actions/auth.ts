@@ -95,6 +95,35 @@ export async function signup(formData: FormData) {
         return { error: "Email confirmation required. Please check your inbox." };
       }
     }
+
+    // Ensure a profiles row exists so the account appears in the admin's
+    // approval list. A DB trigger may have already created it — check first.
+    const { data: existingProfile } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (!existingProfile) {
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        email,
+        full_name: fullName,
+        role: "teacher",
+        is_approved: false,
+        is_active: true,
+      });
+
+      if (profileError) {
+        console.error("[signup] profile insert error:", profileError.message);
+        return {
+          error:
+            "Account created, but saving the profile failed because the database policies are missing. Run supabase/fix-admin-requests.sql in the Supabase SQL Editor, then sign up again. (" +
+            profileError.message +
+            ")",
+        };
+      }
+    }
   } catch (e) {
     return { error: "Failed to connect: " + errMsg(e) };
   }
